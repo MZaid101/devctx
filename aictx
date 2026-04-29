@@ -1,0 +1,146 @@
+#!/usr/bin/env bash
+# aictx — devctx protocol CLI
+# https://github.com/mzaid101/devctx
+set -euo pipefail
+
+VERSION="0.1.0"
+DEVCTX_DIR=".aictx"
+DEVCTX_FILE="DEVCTX.md"
+
+usage() {
+  cat <<HELP
+aictx v${VERSION} — devctx protocol CLI
+
+Usage:
+  aictx init      Scaffold .aictx/ and DEVCTX.md in the current project
+  aictx status    Print current context summary
+  aictx help      Show this message
+
+HELP
+}
+
+cmd_init() {
+  if [[ -f "$DEVCTX_FILE" ]]; then
+    echo "aictx: $DEVCTX_FILE already exists. Skipping root file."
+  else
+    write_devctx_md
+    echo "aictx: created $DEVCTX_FILE"
+  fi
+
+  mkdir -p "$DEVCTX_DIR/decisions" "$DEVCTX_DIR/threads" "$DEVCTX_DIR/open"
+
+  if [[ -f "$DEVCTX_DIR/CURRENT.md" ]]; then
+    echo "aictx: $DEVCTX_DIR/CURRENT.md already exists. Skipping."
+  else
+    write_current_md
+    echo "aictx: created $DEVCTX_DIR/CURRENT.md"
+  fi
+
+  if [[ -f "$DEVCTX_DIR/HANDOFF.md" ]]; then
+    echo "aictx: $DEVCTX_DIR/HANDOFF.md already exists. Skipping."
+  else
+    write_handoff_md
+    echo "aictx: created $DEVCTX_DIR/HANDOFF.md"
+  fi
+
+  touch "$DEVCTX_DIR/decisions/.gitkeep" \
+        "$DEVCTX_DIR/threads/.gitkeep" \
+        "$DEVCTX_DIR/open/.gitkeep"
+
+  echo ""
+  echo "Done. devctx is live in this repo."
+  echo "  Edit $DEVCTX_DIR/CURRENT.md to set your project state."
+  echo "  Commit everything to git."
+}
+
+cmd_status() {
+  if [[ ! -f "$DEVCTX_DIR/CURRENT.md" ]]; then
+    echo "aictx: no $DEVCTX_DIR/CURRENT.md found. Run 'aictx init' first."
+    exit 1
+  fi
+  echo "=== $DEVCTX_DIR/CURRENT.md ==="
+  cat "$DEVCTX_DIR/CURRENT.md"
+}
+
+write_devctx_md() {
+  cat > "$DEVCTX_FILE" <<'DEVCTX'
+# devctx
+
+This repo uses the [devctx protocol](https://github.com/mzaid101/devctx) —
+an agent-agnostic, repo-resident AI context layer.
+
+## Rules for AI agents
+
+1. **Read `.aictx/CURRENT.md` first** — max-compressed live project state (≤200 tokens).
+2. **Write `.aictx/HANDOFF.md` before ending your session** — semi-compressed capsule for the next agent/session.
+
+These two rules are mandatory. Everything else is optional.
+
+## Context map
+
+| Path | Purpose | Compression |
+|------|---------|-------------|
+| `.aictx/CURRENT.md` | Live project state | Max — ≤200 tokens, machine-first |
+| `.aictx/HANDOFF.md` | Session capsule | Semi — human-readable summary |
+| `.aictx/decisions/` | Architecture decision records | Full — rarely read |
+| `.aictx/threads/` | Per-ticket compressed chat summaries | Medium |
+| `.aictx/open/` | Blockers and unresolved questions | Full |
+
+## Writing HANDOFF.md
+
+At session end, overwrite `.aictx/HANDOFF.md` with:
+Session Handoff — YYYY-MM-DD
+What happened
+<what was worked on, decisions made, code changed>
+
+State left in
+<branch, file state, test status, anything broken>
+
+Next session should
+<ordered list of next actions>
+Dont touch
+<files/areas that are fragile or in-progress>
+
+Keep it honest and terse. The next agent will read this before anything else.
+DEVCTX
+}
+
+write_current_md() {
+  cat > "$DEVCTX_DIR/CURRENT.md" <<'CURRENT'
+tick: — | branch: — | status: —
+focus: —
+last-decision: —
+blocked: —
+dont-touch: —
+next: —
+CURRENT
+}
+
+write_handoff_md() {
+  cat > "$DEVCTX_DIR/HANDOFF.md" <<'HANDOFF'
+# Session Handoff — —
+
+## What happened
+—
+
+## State left in
+—
+
+## Next session should
+—
+
+## Dont touch
+—
+HANDOFF
+}
+
+case "${1:-help}" in
+  init)    cmd_init ;;
+  status)  cmd_status ;;
+  help|--help|-h) usage ;;
+  version|--version|-v) echo "aictx v${VERSION}" ;;
+  *)
+    echo "aictx: unknown command '${1}'. Run 'aictx help'." >&2
+    exit 1
+    ;;
+esac
