@@ -12,14 +12,35 @@ usage() {
 aictx v${VERSION} — devctx protocol CLI
 
 Usage:
-  aictx init      Scaffold .aictx/ and DEVCTX.md in the current project
-  aictx status    Print current context summary
-  aictx help      Show this message
+  aictx init [agent]   Setup .aictx/, DEVCTX.md, and optional agent rules (claude, cursor, antigravity, lovable)
+  aictx graphify       Setup graphify in .aictx/GRAPH.md
+  aictx status         Print current context summary
+  aictx help           Show this message
 
 HELP
 }
 
+cmd_graphify() {
+  echo "Graphify: map context." > "$DEVCTX_DIR/GRAPH.md"
+  echo "aictx: created $DEVCTX_DIR/GRAPH.md"
+}
+
+write_agent_rules() {
+  local agent=$1
+  local rulefile=""
+  case "$agent" in
+    claude) rulefile=".clauderules" ;;
+    cursor) rulefile=".cursorrules" ;;
+    antigravity) rulefile=".antigravityrules" ;;
+    lovable) rulefile=".lovablerules" ;;
+    *) echo "aictx: unknown agent '${agent}'. Supported: claude, cursor, antigravity, lovable."; return ;;
+  esac
+  echo "Agent $agent: use caveman style. Save token. Read DEVCTX.md. Support graphify." > "$rulefile"
+  echo "aictx: created $rulefile for $agent"
+}
+
 cmd_init() {
+  local agent="${1:-}"
   if [[ -f "$DEVCTX_FILE" ]]; then
     echo "aictx: $DEVCTX_FILE already exists. Skipping root file."
   else
@@ -51,6 +72,10 @@ cmd_init() {
   echo "Done. devctx is live in this repo."
   echo "  Edit $DEVCTX_DIR/CURRENT.md to set your project state."
   echo "  Commit everything to git."
+
+  if [[ -n "$agent" ]]; then
+    write_agent_rules "$agent"
+  fi
 }
 
 cmd_status() {
@@ -65,43 +90,23 @@ cmd_status() {
 write_devctx_md() {
   cat > "$DEVCTX_FILE" <<'DEVCTX'
 # devctx
-
-This repo uses the [devctx protocol](https://github.com/mzaid101/devctx) —
-an agent-agnostic, repo-resident AI context layer.
-
-## Rules for AI agents
-
-1. **Read `.aictx/CURRENT.md` first** — max-compressed live project state (≤200 tokens).
-2. **Write `.aictx/HANDOFF.md` before ending your session** — semi-compressed capsule for the next agent/session.
-
-These two rules are mandatory. Everything else is optional.
-
-## Context map
-
-| Path | Purpose | Compression |
-|------|---------|-------------|
-| `.aictx/CURRENT.md` | Live project state | Max — ≤200 tokens, machine-first |
-| `.aictx/HANDOFF.md` | Session capsule | Semi — human-readable summary |
-| `.aictx/decisions/` | Architecture decision records | Full — rarely read |
-| `.aictx/threads/` | Per-ticket compressed chat summaries | Medium |
-| `.aictx/open/` | Blockers and unresolved questions | Full |
-
-## Writing HANDOFF.md
-
-At session end, overwrite `.aictx/HANDOFF.md` with:
-Session Handoff — YYYY-MM-DD
-What happened
-<what was worked on, decisions made, code changed>
-
-State left in
-<branch, file state, test status, anything broken>
-
-Next session should
-<ordered list of next actions>
-Dont touch
-<files/areas that are fragile or in-progress>
-
-Keep it honest and terse. The next agent will read this before anything else.
+Repo use devctx. Save token. Caveman style.
+## Rule
+1. Read `.aictx/CURRENT.md`. Fast state.
+2. Write `.aictx/HANDOFF.md`. Tell next agent.
+## Map
+`.aictx/CURRENT.md`: Now.
+`.aictx/HANDOFF.md`: Handoff.
+`.aictx/decisions/`: Big choice.
+`.aictx/threads/`: Chat.
+`.aictx/open/`: Blocked.
+## Write HANDOFF
+End session write:
+Handoff - YYYY-MM-DD
+Happen: [did]
+State: [now]
+Next: [do]
+Dont touch: [bad]
 DEVCTX
 }
 
@@ -118,24 +123,21 @@ CURRENT
 
 write_handoff_md() {
   cat > "$DEVCTX_DIR/HANDOFF.md" <<'HANDOFF'
-# Session Handoff — —
-
-## What happened
+# Handoff - —
+## Happen
 —
-
-## State left in
+## State
 —
-
-## Next session should
+## Next
 —
-
 ## Dont touch
 —
 HANDOFF
 }
 
 case "${1:-help}" in
-  init)    cmd_init ;;
+  init)    cmd_init "${2:-}" ;;
+  graphify) cmd_graphify ;;
   status)  cmd_status ;;
   help|--help|-h) usage ;;
   version|--version|-v) echo "aictx v${VERSION}" ;;
